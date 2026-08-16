@@ -10,9 +10,8 @@ export async function initDashboard(uid) {
         const profileSnap = await getDoc(profileRef);
         const profile = profileSnap.data();
 
-        // Fetch last 90 days
-        const qDays = query(daysRef, orderBy("__name__", "desc"), limit(90));
-        const daysSnap = await getDocs(qDays);
+        // Fetch days
+        const daysSnap = await getDocs(daysRef);
         const daysMap = new Map();
         let allDays = [];
         daysSnap.forEach(doc => {
@@ -21,12 +20,14 @@ export async function initDashboard(uid) {
             daysMap.set(doc.id, data);
             allDays.push(data);
         });
+        allDays.sort((a, b) => b.id.localeCompare(a.id));
+        allDays = allDays.slice(0, 90);
 
         // Fetch lab results
-        const qLab = query(labRef, orderBy("__name__", "asc"));
-        const labSnap = await getDocs(qLab);
+        const labSnap = await getDocs(labRef);
         let labs = [];
         labSnap.forEach(doc => labs.push({ id: doc.id, ...doc.data() }));
+        labs.sort((a, b) => a.id.localeCompare(b.id));
 
         renderAdherenceRing(allDays, profile.doseTarget);
         renderStreak(allDays, profile.doseTarget);

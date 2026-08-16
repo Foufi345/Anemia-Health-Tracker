@@ -30,7 +30,7 @@ export async function initSettings(uid) {
             saveTimeout = setTimeout(() => {
                 let val = e.target.value;
                 if (e.target.type === 'number') val = parseFloat(val);
-                updateDoc(profileRef, { [field]: val }).then(showToast);
+                setDoc(profileRef, { [field]: val }, { merge: true }).then(showToast);
             }, 1000);
         });
     };
@@ -41,17 +41,17 @@ export async function initSettings(uid) {
     attachProfileSave('set-goal-days', 'treatmentGoalDays');
     
     document.getElementById('set-language').addEventListener('change', (e) => {
-        updateDoc(profileRef, { language: e.target.value }).then(showToast);
+        setDoc(profileRef, { language: e.target.value }, { merge: true }).then(showToast);
     });
     document.getElementById('set-theme').addEventListener('change', (e) => {
-        updateDoc(profileRef, { theme: e.target.value }).then(showToast);
+        setDoc(profileRef, { theme: e.target.value }, { merge: true }).then(showToast);
     });
     document.getElementById('set-reminders').addEventListener('change', (e) => {
         const checked = e.target.checked;
         if (checked && Notification.permission !== "granted") {
             Notification.requestPermission();
         }
-        updateDoc(profileRef, { remindersEnabled: checked }).then(showToast);
+        setDoc(profileRef, { remindersEnabled: checked }, { merge: true }).then(showToast);
     });
 
     // Load Products for dropdowns
@@ -101,24 +101,27 @@ export async function initSettings(uid) {
     });
 
     const labRef = collection(db, "users", uid, "labResults");
-    const qLab = query(labRef, orderBy("__name__", "desc"));
-    onSnapshot(qLab, (snap) => {
+    onSnapshot(labRef, (snap) => {
         const tbody = document.getElementById('lab-table-body');
         tbody.innerHTML = '';
-        snap.forEach(d => {
-            const val = d.data();
+        const items = [];
+        snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+        items.sort((a, b) => b.id.localeCompare(a.id));
+        items.forEach(val => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="px-4 py-3 font-medium text-slate-800">${d.id}</td>
-                <td class="px-4 py-3">${val.hemoglobin || '-'}</td>
-                <td class="px-4 py-3">${val.ferritin || '-'}</td>
+                <td class="px-4 py-3 font-medium text-slate-800">${val.id}</td>
+                <td class="px-4 py-3">${val.hemoglobin !== null && val.hemoglobin !== undefined ? val.hemoglobin : '-'}</td>
+                <td class="px-4 py-3">${val.ferritin !== null && val.ferritin !== undefined ? val.ferritin : '-'}</td>
                 <td class="px-4 py-3 text-slate-500">${val.notes || ''}</td>
                 <td class="px-4 py-3 text-end">
-                    <button onclick="deleteLab('${d.id}')" class="text-slate-400 hover:text-red-500 transition">🗑️</button>
+                    <button onclick="deleteLab('${val.id}')" class="text-slate-400 hover:text-red-500 transition">🗑️</button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
+    }, (err) => {
+        console.error("Lab results snapshot error:", err);
     });
 }
 
@@ -181,7 +184,7 @@ function renderSlots(slots) {
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(async () => {
                     const data = getValFn();
-                    await updateDoc(doc(db, "users", currentUid, "mealSlots", s.id), data);
+                    await setDoc(doc(db, "users", currentUid, "mealSlots", s.id), data, { merge: true });
                     showToast();
                 }, 1000);
             });
@@ -203,7 +206,7 @@ function renderSlots(slots) {
         attachSlotSave(`slot-remind-${s.id}`, getSlotData);
         
         row.querySelector(`#slot-prod-${s.id}`).addEventListener('change', async () => {
-            await updateDoc(doc(db, "users", currentUid, "mealSlots", s.id), getSlotData());
+            await setDoc(doc(db, "users", currentUid, "mealSlots", s.id), getSlotData(), { merge: true });
             showToast();
         });
 
