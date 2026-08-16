@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anemia Heal Tracker - Inventory</title>
+    <link rel="stylesheet" href="./output.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 pb-10">
+    <main class="max-w-4xl mx-auto mt-6 px-4 space-y-8">
+        
+        <!-- Shopping List -->
+        <section id="shopping-list-section" class="hidden">
+            <h2 class="text-xl font-bold text-slate-700 mb-4 flex items-center gap-2">
+                <span>🛒</span> <span data-i18n="shoppingList">Auto Shopping List</span>
+            </h2>
+            <div id="shopping-list-container" class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100 space-y-3">
+                <!-- Shopping items injected here -->
+            </div>
+        </section>
+
+        <!-- Inventory -->
+        <section>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-slate-700" data-i18n="inventory">Inventory</h2>
+                <button id="btn-add-product" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition" data-i18n="addProduct">+ Add Product</button>
+            </div>
+            
+            <div id="inventory-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Categories injected here -->
+            </div>
+        </section>
+
+        <!-- Add/Edit Product Modal -->
+        <div id="product-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 relative max-h-[90vh] overflow-y-auto">
+                <button id="close-product-modal" class="absolute top-4 end-4 text-slate-400 hover:text-slate-600">✕</button>
+                <h3 class="text-lg font-bold text-slate-800 mb-4" id="product-modal-title" data-i18n="addProduct">Add Product</h3>
+                
+                <form id="product-form" class="space-y-4">
+                    <input type="hidden" id="prod-id">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodName">Name</label>
+                            <input type="text" id="prod-name" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodIcon">Icon (Emoji)</label>
+                            <input type="text" id="prod-icon" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodCategory">Category</label>
+                        <input type="text" id="prod-category" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" data-i18n-placeholder="prodCategoryHint" placeholder="e.g. Meat, Veggies, Meds">
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodUnit">Unit</label>
+                            <input type="text" id="prod-unit" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" data-i18n-placeholder="prodUnitHint" placeholder="portion, pill...">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodStock">Current Stock</label>
+                            <input type="number" id="prod-stock" min="0" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodPortion">Portion per use</label>
+                            <input type="number" id="prod-portion" min="0.1" step="any" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="prodThreshold">Low Stock Threshold</label>
+                        <input type="number" id="prod-threshold" min="0" required class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-rose-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-rose-700 transition" data-i18n="save">Save</button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+    <script type="module">
+        import { requireAuth } from './js/auth-guard.js';
+        import { injectNav } from './js/nav.js';
+        import { initInventory } from './js/inventory.js';
+
+        requireAuth((user) => {
+            injectNav('inventory');
+            initInventory(user.uid);
+        });
+    </script>
+</body>
+</html>

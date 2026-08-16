@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anemia Heal Tracker - Today</title>
+    <link rel="stylesheet" href="./output.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 pb-10">
+    <main class="max-w-4xl mx-auto mt-6 px-4 space-y-8">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Doses Status -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-slate-600" data-i18n="medicationDoses">Medication Doses</h3>
+                    <span id="dose-text" class="text-rose-600 font-bold">0 / 2</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5">
+                    <div id="dose-bar" class="bg-rose-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Nausea Status -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-slate-600" data-i18n="nauseaControl">Nausea Control</h3>
+                    <span id="nausea-status" class="text-slate-400 font-bold">...</span>
+                </div>
+                <p class="text-sm text-slate-500" data-i18n="nauseaDesc">Complete snacks and avoid hunger to reduce nausea.</p>
+            </div>
+        </div>
+
+        <!-- Meals Checklist -->
+        <section>
+            <h2 class="text-lg font-bold text-slate-700 mb-4" data-i18n="mealsSupplements">Daily Checklist</h2>
+            <div id="meals-container" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
+                <div class="p-4 text-center text-slate-400" data-i18n="loading">Loading...</div>
+            </div>
+        </section>
+
+        <!-- Symptoms Journal -->
+        <section>
+            <h2 class="text-lg font-bold text-slate-700 mb-4" data-i18n="dailyJournal">Daily Symptoms Journal</h2>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-2 flex justify-between">
+                            <span data-i18n="energy">Energy</span>
+                            <span id="val-energy" class="text-orange-500">3/5</span>
+                        </label>
+                        <input type="range" id="slider-energy" min="1" max="5" value="3" class="w-full accent-orange-500 cursor-pointer">
+                        <div class="flex justify-between text-xs text-slate-400 mt-1">
+                            <span>منخفضة جداً</span><span>ممتازة</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-2 flex justify-between">
+                            <span data-i18n="nausea">Nausea</span>
+                            <span id="val-nausea" class="text-green-500">3/5</span>
+                        </label>
+                        <input type="range" id="slider-nausea" min="1" max="5" value="3" class="w-full accent-green-500 cursor-pointer">
+                        <div class="flex justify-between text-xs text-slate-400 mt-1">
+                            <span>لا يوجد</span><span>شديد جداً</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-2 flex justify-between">
+                            <span data-i18n="dizziness">Dizziness</span>
+                            <span id="val-dizziness" class="text-blue-500">3/5</span>
+                        </label>
+                        <input type="range" id="slider-dizziness" min="1" max="5" value="3" class="w-full accent-blue-500 cursor-pointer">
+                        <div class="flex justify-between text-xs text-slate-400 mt-1">
+                            <span>لا يوجد</span><span>شديدة</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-600 mb-2" data-i18n="notes">Notes Today</label>
+                    <textarea id="notes-text" rows="3" class="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rose-500" data-i18n-placeholder="notesPlaceholder" placeholder="How do you feel today? Any changes?"></textarea>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    <script type="module">
+        import { requireAuth } from './js/auth-guard.js';
+        import { injectNav } from './js/nav.js';
+        import { initToday } from './js/today.js';
+
+        requireAuth((user) => {
+            injectNav('today');
+            initToday(user.uid);
+        });
+    </script>
+</body>
+</html>
