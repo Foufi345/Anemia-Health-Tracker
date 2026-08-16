@@ -29,9 +29,14 @@ export async function initDashboard(uid) {
         labSnap.forEach(doc => labs.push({ id: doc.id, ...doc.data() }));
         labs.sort((a, b) => a.id.localeCompare(b.id));
 
+        // Fetch Fumacur stock
+        const fumacurRef = doc(db, "users", uid, "products", "fumacur");
+        const fumacurSnap = await getDoc(fumacurRef);
+        const fumacurData = fumacurSnap.exists() ? fumacurSnap.data() : { stockQty: 180 };
+
         renderAdherenceRing(allDays, profile.doseTarget);
         renderStreak(allDays, profile.doseTarget);
-        renderCountdown(profile);
+        renderCountdown(profile, fumacurData);
         renderHeatmap(daysMap, profile.doseTarget);
         renderWeeklyChart(allDays, profile.doseTarget);
         renderLabTrends(labs);
@@ -135,23 +140,54 @@ function renderStreak(days, doseTarget) {
     document.getElementById('streak-best').innerText = bestStreak;
 }
 
-function renderCountdown(profile) {
-    if (profile.treatmentStartDate && profile.treatmentGoalDays) {
+function renderCountdown(profile, fumacurData) {
+    const card = document.getElementById('countdown-card');
+    if (!card) return;
+
+    card.classList.remove('hidden');
+
+    const totalStock = 180;
+    const currentStock = fumacurData && fumacurData.stockQty !== undefined ? fumacurData.stockQty : 180;
+    const doseTarget = profile.doseTarget || 2;
+    const goalDays = profile.treatmentGoalDays || 90;
+
+    let daysElapsed = 1;
+    let expectedEndStr = '';
+    let pct = 0;
+
+    if (profile.treatmentStartDate) {
         const start = new Date(profile.treatmentStartDate);
         const today = new Date();
-        const diffTime = Math.abs(today - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-        
-        const goal = profile.treatmentGoalDays;
-        const remaining = goal - diffDays;
+        today.setHours(0,0,0,0);
+        start.setHours(0,0,0,0);
+        const diffTime = today - start;
+        daysElapsed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
         
         const end = new Date(start);
-        end.setDate(end.getDate() + goal);
-
-        document.getElementById('countdown-card').classList.remove('hidden');
-        document.getElementById('countdown-days').innerText = `Today ${diffDays} من ${goal}`;
-        document.getElementById('countdown-date').innerText = `Expected End: ${end.toISOString().split('T')[0]}`;
+        end.setDate(end.getDate() + goalDays);
+        expectedEndStr = `End: ${end.toISOString().split('T')[0]}`;
+        
+        pct = Math.min(100, Math.max(0, Math.round((daysElapsed / goalDays) * 100)));
+    } else {
+        const pillsTaken = Math.max(0, totalStock - currentStock);
+        daysElapsed = Math.max(1, Math.round(pillsTaken / doseTarget) + 1);
+        pct = Math.min(100, Math.round((pillsTaken / totalStock) * 100));
+        expectedEndStr = `Goal: ${goalDays} days (180 pills)`;
     }
+
+    const daysLeft = Math.max(0, Math.floor(currentStock / doseTarget));
+
+    const countdownDays = document.getElementById('countdown-days');
+    const countdownDate = document.getElementById('countdown-date');
+    const treatmentPct = document.getElementById('treatment-pct');
+    const treatmentBar = document.getElementById('treatment-bar');
+    const stockInfo = document.getElementById('fumacur-stock-info');
+
+    if (countdownDays) countdownDays.innerText = `Day ${daysElapsed} / ${goalDays}`;
+    if (countdownDate) countdownDate.innerText = expectedEndStr;
+    if (treatmentPct) treatmentPct.innerText = `${pct}%`;
+    if (treatmentBar) treatmentBar.style.width = `${pct}%`;
+    if (stockInfo) stockInfo.innerText = `💊 Fumacur: ${currentStock} / ${totalStock} (${daysLeft}d left)`;
 }
 
 function renderHeatmap(daysMap, doseTarget) {
@@ -249,62 +285,131 @@ function renderWeeklyChart(days, doseTarget) {
 function renderLabTrends(labs) {
     const container = document.getElementById('lab-chart-container');
     const empty = document.getElementById('lab-empty');
+    const summaryCards = document.getElementById('lab-summary-cards');
     
-    if (labs.length === 0) {
-        empty.classList.remove('hidden');
-        container.classList.add('hidden');
+    if (!labs || labs.length === 0) {
+        if (empty) empty.classList.remove('hidden');
+        if (container) container.classList.add('hidden');
+        if (summaryCards) summaryCards.classList.add('hidden');
         return;
     }
     
-    empty.classList.add('hidden');
-    container.classList.remove('hidden');
-
-    // Simple SVG line chart
-    const w = container.clientWidth;
-    const h = container.clientHeight;
+    if (empty) empty.classList.add('hidden');
+    if (container) container.classList.remove('hidden');
     
-    // Bounds
+    // Populate summary cards with latest lab result
+    if (summaryCards) {
+        summaryCards.classList.remove('hidden');
+        const latest = labs[labs.length - 1];
+        const hbEl = document.getElementById('latest-hb-val');
+        const ferEl = document.getElementById('latest-fer-val');
+        const dateEl = document.getElementById('latest-lab-date');
+        const notesEl = document.getElementById('latest-lab-notes');
+
+        if (hbEl) hbEl.innerText = latest.hemoglobin !== null && latest.hemoglobin !== undefined ? latest.hemoglobin : '--';
+        if (ferEl) ferEl.innerText = latest.ferritin !== null && latest.ferritin !== undefined ? latest.ferritin : '--';
+        if (dateEl) dateEl.innerText = latest.id || '--';
+        if (notesEl) notesEl.innerText = latest.notes ? `📝 ${latest.notes}` : '';
+    }
+
+    // Chart Dimensions
+    const vbW = 600;
+    const vbH = 220;
+    const padLeft = 50;
+    const padRight = 50;
+    const padTop = 40;
+    const padBottom = 40;
+    const chartW = vbW - padLeft - padRight;
+    const chartH = vbH - padTop - padBottom;
+
+    // Value bounds
+    let maxVal = Math.max(20, ...labs.map(l => Math.max(l.hemoglobin || 0, l.ferritin || 0)));
+    maxVal = Math.ceil(maxVal / 5) * 5; // Round to nearest multiple of 5
+    const minVal = 0;
+
+    const mapY = (val) => padTop + chartH - ((val - minVal) / (maxVal - minVal)) * chartH;
+
+    // Date bounds
     let minDate = new Date(labs[0].id).getTime();
-    let maxDate = new Date(labs[labs.length-1].id).getTime();
-    if (minDate === maxDate) maxDate += 86400000; // Add 1 day if only 1 data point
+    let maxDate = new Date(labs[labs.length - 1].id).getTime();
 
-    let minVal = Math.min(...labs.map(l => Math.min(l.hemoglobin || 100, l.ferritin || 100)));
-    let maxVal = Math.max(...labs.map(l => Math.max(l.hemoglobin || 0, l.ferritin || 0)));
-    
-    minVal = Math.max(0, minVal - 5);
-    maxVal = maxVal + 10;
-
-    const mapX = (dateStr) => ((new Date(dateStr).getTime() - minDate) / (maxDate - minDate)) * (w - 40) + 20;
-    const mapY = (val) => h - (((val - minVal) / (maxVal - minVal)) * (h - 40) + 20);
-
-    let svg = `<svg viewBox="0 0 ${w} ${h}" class="w-full h-full">`;
-    
-    // Normal Hb band (12 - 15.5)
-    const yTop = mapY(15.5);
-    const yBottom = mapY(12);
-    svg += `<rect x="20" y="${yTop}" width="${w-40}" height="${yBottom - yTop}" fill="#dcfce7" opacity="0.5" />`;
-
-    // Path Hb (Red)
-    let ptsHb = labs.filter(l => l.hemoglobin).map(l => `${mapX(l.id)},${mapY(l.hemoglobin)}`).join(' L ');
-    if (ptsHb) svg += `<path d="M ${ptsHb}" fill="none" stroke="#e11d48" stroke-width="2" />`;
-    
-    // Path Ferritin (Blue)
-    let ptsFer = labs.filter(l => l.ferritin).map(l => `${mapX(l.id)},${mapY(l.ferritin)}`).join(' L ');
-    if (ptsFer) svg += `<path d="M ${ptsFer}" fill="none" stroke="#2563eb" stroke-width="2" />`;
-
-    // Points
-    labs.forEach(l => {
-        if (l.hemoglobin) {
-            svg += `<circle cx="${mapX(l.id)}" cy="${mapY(l.hemoglobin)}" r="4" fill="#e11d48"><title>Hb: ${l.hemoglobin} (${l.id})</title></circle>`;
+    const mapX = (dateStr) => {
+        if (labs.length === 1 || minDate === maxDate) {
+            return padLeft + chartW / 2; // Center if only 1 lab
         }
-        if (l.ferritin) {
-             svg += `<circle cx="${mapX(l.id)}" cy="${mapY(l.ferritin)}" r="4" fill="#2563eb"><title>Ferritin: ${l.ferritin} (${l.id})</title></circle>`;
+        const t = new Date(dateStr).getTime();
+        return padLeft + ((t - minDate) / (maxDate - minDate)) * chartW;
+    };
+
+    let svg = `<svg viewBox="0 0 ${vbW} ${vbH}" class="w-full h-full overflow-visible select-none">`;
+
+    // Normal Hb Range Band (12.0 - 15.5)
+    const yTopBand = mapY(Math.min(maxVal, 15.5));
+    const yBottomBand = mapY(Math.min(maxVal, 12.0));
+    const bandHeight = Math.max(2, yBottomBand - yTopBand);
+    svg += `<rect x="${padLeft}" y="${yTopBand}" width="${chartW}" height="${bandHeight}" fill="#22c55e" opacity="0.12" rx="4" />`;
+    svg += `<text x="${padLeft + 6}" y="${yTopBand + 12}" font-size="10" font-weight="bold" fill="#16a34a">Normal Hb (12.0 - 15.5)</text>`;
+
+    // Y Gridlines and Labels (steps of 5)
+    const step = maxVal <= 25 ? 5 : 10;
+    for (let v = 0; v <= maxVal; v += step) {
+        const y = mapY(v);
+        svg += `<line x1="${padLeft}" y1="${y}" x2="${padLeft + chartW}" y2="${y}" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3" />`;
+        svg += `<text x="${padLeft - 10}" y="${y + 3}" font-size="10" fill="#94a3b8" text-anchor="end" font-family="sans-serif">${v}</text>`;
+    }
+
+    // Baseline X Axis
+    svg += `<line x1="${padLeft}" y1="${padTop + chartH}" x2="${padLeft + chartW}" y2="${padTop + chartH}" stroke="#e2e8f0" stroke-width="1.5" />`;
+
+    // Connecting Lines (if >= 2 points)
+    if (labs.length > 1) {
+        const hbPoints = labs.filter(l => l.hemoglobin !== null && l.hemoglobin !== undefined);
+        if (hbPoints.length > 1) {
+            const pathHb = hbPoints.map(l => `${mapX(l.id)},${mapY(l.hemoglobin)}`).join(' L ');
+            svg += `<path d="M ${pathHb}" fill="none" stroke="#e11d48" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />`;
+        }
+
+        const ferPoints = labs.filter(l => l.ferritin !== null && l.ferritin !== undefined);
+        if (ferPoints.length > 1) {
+            const pathFer = ferPoints.map(l => `${mapX(l.id)},${mapY(l.ferritin)}`).join(' L ');
+            svg += `<path d="M ${pathFer}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />`;
+        }
+    }
+
+    // Points and Value Callouts
+    labs.forEach(l => {
+        const x = mapX(l.id);
+
+        // Vertical Guide line down to date
+        svg += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${padTop + chartH}" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="2,2" />`;
+        
+        // Date Label below X axis
+        svg += `<text x="${x}" y="${padTop + chartH + 18}" font-size="11" font-weight="bold" fill="#64748b" text-anchor="middle">${l.id}</text>`;
+
+        // Hemoglobin Point + Badge
+        if (l.hemoglobin !== null && l.hemoglobin !== undefined) {
+            const yHb = mapY(l.hemoglobin);
+            svg += `<circle cx="${x}" cy="${yHb}" r="5.5" fill="#e11d48" stroke="#ffffff" stroke-width="2" shadow="drop-shadow(0 1px 2px rgba(0,0,0,0.1))" />`;
+            svg += `<rect x="${x - 26}" y="${yHb - 22}" width="52" height="16" rx="4" fill="#e11d48" />`;
+            svg += `<text x="${x}" y="${yHb - 10}" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">Hb: ${l.hemoglobin}</text>`;
+        }
+
+        // Ferritin Point + Badge
+        if (l.ferritin !== null && l.ferritin !== undefined) {
+            const yFer = mapY(l.ferritin);
+            svg += `<circle cx="${x}" cy="${yFer}" r="5.5" fill="#2563eb" stroke="#ffffff" stroke-width="2" />`;
+            svg += `<rect x="${x - 30}" y="${yFer + 8}" width="60" height="16" rx="4" fill="#2563eb" />`;
+            svg += `<text x="${x}" y="${yFer + 20}" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">Fer: ${l.ferritin}</text>`;
         }
     });
 
-    // Legend
-    svg += `<text x="30" y="20" font-size="12" fill="#e11d48" font-family="sans-serif">Hemoglobin (Hb)</text>`;
-    svg += `<text x="150" y="20" font-size="12" fill="#2563eb" font-family="sans-serif">Ferritin</text>`;
+    // Legend at top
+    svg += `<g transform="translate(${padLeft}, 15)">
+        <circle cx="6" cy="4" r="4.5" fill="#e11d48" />
+        <text x="16" y="8" font-size="11" font-weight="bold" fill="#e11d48">Hemoglobin (Hb)</text>
+        <circle cx="160" cy="4" r="4.5" fill="#2563eb" />
+        <text x="170" y="8" font-size="11" font-weight="bold" fill="#2563eb">Ferritin</text>
+    </g>`;
 
     svg += `</svg>`;
     container.innerHTML = svg;

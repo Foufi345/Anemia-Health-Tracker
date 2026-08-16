@@ -14,6 +14,11 @@
 <body class="bg-slate-50 text-slate-800 pb-10">
     <main class="max-w-4xl mx-auto mt-6 px-4 space-y-8">
         
+        <!-- Toast -->
+        <div id="toast" class="fixed bottom-4 end-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg transition-opacity duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2 font-bold">
+            <span>✓</span> <span data-i18n="saved">Saved</span>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Doses Status -->
             <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
@@ -23,6 +28,12 @@
                 </div>
                 <div class="w-full bg-slate-200 rounded-full h-2.5">
                     <div id="dose-bar" class="bg-rose-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span class="flex items-center gap-1 font-bold text-slate-600">
+                        <span>💊</span> <span id="med-name-label">Fumacur Stock</span>
+                    </span>
+                    <span id="med-stock-text" class="font-bold text-rose-600">-- / 180</span>
                 </div>
             </div>
 
@@ -83,6 +94,11 @@
                 <div>
                     <label class="block text-sm font-bold text-slate-600 mb-2" data-i18n="notes">Notes Today</label>
                     <textarea id="notes-text" rows="3" class="w-full border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-rose-500" data-i18n-placeholder="notesPlaceholder" placeholder="How do you feel today? Any changes?"></textarea>
+                </div>
+                <div class="flex justify-end pt-2">
+                    <button id="btn-save-symptoms" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2 text-sm">
+                        <span>💾</span> <span data-i18n="saveJournal">Save Journal</span>
+                    </button>
                 </div>
             </div>
         </section>

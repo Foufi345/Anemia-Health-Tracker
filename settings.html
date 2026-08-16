@@ -22,56 +22,61 @@
         <h2 class="text-2xl font-bold text-slate-800" data-i18n="settingsTitle">Settings</h2>
 
         <!-- Profile & Appearance -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 space-y-4">
-                <h3 class="font-bold text-slate-700 flex items-center gap-2"><span>👤</span> <span data-i18n="profileSettings">Profile & Treatment</span></h3>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="medName">Medication / Supplement Name</label>
-                    <input type="text" id="set-med-name" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
+        <form id="profile-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2"><span>👤</span> <span data-i18n="profileSettings">Profile & Treatment</span></h3>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="medName">Medication / Supplement Name</label>
+                        <input type="text" id="set-med-name" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="doseTarget">Daily Target (Doses)</label>
+                        <input type="number" id="set-dose-target" min="1" max="5" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="startDate">Treatment Start Date</label>
+                        <input type="date" id="set-start-date" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="goalDays">Treatment Goal (Days)</label>
+                        <input type="number" id="set-goal-days" min="1" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="doseTarget">Daily Target (Doses)</label>
-                    <input type="number" id="set-dose-target" min="1" max="5" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="startDate">Treatment Start Date</label>
-                    <input type="date" id="set-start-date" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="goalDays">Treatment Goal (Days)</label>
-                    <input type="number" id="set-goal-days" min="1" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500">
+
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2"><span>🎨</span> <span data-i18n="appearanceSettings">Appearance & Language</span></h3>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="language">Language</label>
+                        <select id="set-language" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500 bg-white">
+                            <option value="ar">العربية (Arabic)</option>
+                            <option value="en">English (الإنجليزية)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="theme">Theme</label>
+                        <select id="set-theme" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500 bg-white">
+                            <option value="light" data-i18n="themeLight">Light</option>
+                            <option value="dark" data-i18n="themeDark">Dark</option>
+                        </select>
+                    </div>
+                    
+                    <hr class="my-2 border-slate-100">
+                    <h3 class="font-bold text-slate-700 flex items-center gap-2"><span>🔔</span> <span data-i18n="remindersTitle">Reminders</span></h3>
+                    <div>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="set-reminders" class="w-4 h-4 accent-rose-500">
+                            <span class="text-sm font-bold text-slate-700" data-i18n="enableReminders">Enable Reminders (Local)</span>
+                        </label>
+                    </div>
                 </div>
             </div>
-
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 space-y-4">
-                <h3 class="font-bold text-slate-700 flex items-center gap-2"><span>🎨</span> <span data-i18n="appearanceSettings">Appearance & Language</span></h3>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="language">Language</label>
-                    <select id="set-language" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500 bg-white">
-                        <option value="ar">العربية (Arabic)</option>
-                        <option value="en">English (الإنجليزية)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-1" data-i18n="theme">Theme</label>
-                    <select id="set-theme" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-rose-500 bg-white">
-                        <option value="light" data-i18n="themeLight">Light</option>
-                        <option value="dark" data-i18n="themeDark">Dark</option>
-                    </select>
-                </div>
-                
-                <hr class="my-2 border-slate-100">
-                <h3 class="font-bold text-slate-700 flex items-center gap-2"><span>🔔</span> <span data-i18n="remindersTitle">Reminders</span></h3>
-                <div>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="set-reminders" class="w-4 h-4 accent-rose-500">
-                        <span class="text-sm font-bold text-slate-700" data-i18n="enableReminders">Enable Reminders (Local)</span>
-                    </label>
-                </div>
+            <div class="flex justify-end">
+                <button type="submit" id="btn-save-profile" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2 text-sm">
+                    <span>💾</span> <span data-i18n="saveProfile">Save Settings</span>
+                </button>
             </div>
-
-        </section>
+        </form>
 
         <!-- Meal Slots Manager -->
         <section class="bg-white p-5 rounded-xl shadow-sm border border-slate-100">

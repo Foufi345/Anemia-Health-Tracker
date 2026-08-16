@@ -49,7 +49,7 @@ const dictionary = {
         prodPortion: "الاستهلاك للوجبة",
         prodThreshold: "حد التنبيه (لإضافته للمشتريات)",
         save: "حفظ",
-        saved: "تم الحفظ",
+        saved: "تم الحفظ بنجاح",
         settingsTitle: "الإعدادات",
         profileSettings: "الملف الشخصي والعلاج",
         medName: "اسم الدواء / المكمل",
@@ -63,6 +63,16 @@ const dictionary = {
         themeDark: "داكن",
         scheduleManager: "إدارة الوجبات والجدول اليومي",
         addSlot: "+ إضافة وجبة",
+        saveSlot: "حفظ الوجبة",
+        saveProfile: "حفظ الإعدادات",
+        saveJournal: "حفظ السجل",
+        mealName: "اسم الوجبة",
+        mealTime: "الوقت",
+        mealDesc: "الوصف",
+        mealProduct: "المنتج المستهلك",
+        noProduct: "(بدون منتج)",
+        containsDose: "💊 تحتوي على جرعة دواء",
+        enableReminder: "🔔 تفعيل التنبيه",
         labResultsEntry: "تسجيل التحاليل المخبرية",
         date: "التاريخ",
         notesPlaceholderLab: "صائم، إلخ...",
@@ -118,7 +128,7 @@ const dictionary = {
         prodPortion: "Portion per use",
         prodThreshold: "Low Stock Threshold",
         save: "Save",
-        saved: "Saved",
+        saved: "Saved successfully",
         settingsTitle: "Settings",
         profileSettings: "Profile & Treatment",
         medName: "Medication / Supplement Name",
@@ -132,6 +142,16 @@ const dictionary = {
         themeDark: "Dark",
         scheduleManager: "Meals & Schedule Manager",
         addSlot: "+ Add Meal",
+        saveSlot: "Save Meal",
+        saveProfile: "Save Settings",
+        saveJournal: "Save Journal",
+        mealName: "Meal Name",
+        mealTime: "Time",
+        mealDesc: "Description",
+        mealProduct: "Consumed Product",
+        noProduct: "(No product consumed)",
+        containsDose: "💊 Contains medication dose",
+        enableReminder: "🔔 Enable Reminder",
         labResultsEntry: "Lab Results Entry",
         date: "Date",
         notesPlaceholderLab: "Fasting, etc...",
@@ -148,10 +168,6 @@ export function applyLanguage(lang) {
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if (dict[key]) {
-            // If element contains span or other elements, this might wipe them out.
-            // Better to only replace text nodes, but for our simple UI, direct replacement or checking childnodes is ok.
-            // Since we mix icons in some places (like `<span>👤</span> الملف الشخصي`), we need to be careful.
-            // Actually, in the HTML I separated icons into spans, so the text should be applied to the specific element containing the text.
             el.innerHTML = dict[key]; 
         }
     });

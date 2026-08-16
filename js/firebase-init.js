@@ -113,4 +113,73 @@ export async function migrateUserData(uid) {
     }
 }
 
+// Sync User's Active Treatment & Fumacur Stock
+export async function syncFumacurTreatment(uid) {
+    try {
+        const profileRef = doc(db, "users", uid);
+        const fumacurRef = doc(db, "users", uid, "products", "fumacur");
+        
+        const profileSnap = await getDoc(profileRef);
+        const pData = profileSnap.exists() ? profileSnap.data() : {};
+
+        // Only sync if not already synced to 2026-08-11
+        if (pData.treatmentStartDate === "2026-08-11" && pData.treatmentGoalDays === 90) {
+            return;
+        }
+
+        const batch = writeBatch(db);
+
+        // 1. Profile: Start 2026-08-11, 90 Days Goal, 2 doses/day
+        batch.set(profileRef, {
+            medicationName: "فوماكور (Fumacur)",
+            doseTarget: 2,
+            treatmentStartDate: "2026-08-11",
+            treatmentGoalDays: 90
+        }, { merge: true });
+
+        // 2. Fumacur Product: 180 initial - 12 taken (Aug 11-16) = 168 remaining
+        batch.set(fumacurRef, {
+            name: "فوماكور (Fumacur)",
+            category: "Medication",
+            unit: "قرص",
+            stockQty: 168,
+            portionPerUse: 1,
+            lowStockThreshold: 20,
+            icon: "💊"
+        }, { merge: true });
+
+        // 3. Populate past days history: 2026-08-11 through 2026-08-16 with 2 doses each
+        const dates = [
+            "2026-08-11",
+            "2026-08-12",
+            "2026-08-13",
+            "2026-08-14",
+            "2026-08-15",
+            "2026-08-16"
+        ];
+
+        dates.forEach(dStr => {
+            const dayRef = doc(db, "users", uid, "days", dStr);
+            batch.set(dayRef, {
+                dosesTaken: 2,
+                meals: {
+                    lunch: true,
+                    dinner: true
+                },
+                symptoms: {
+                    energy: 4,
+                    nausea: 1,
+                    dizziness: 1,
+                    notes: "2 doses Fumacur taken"
+                }
+            }, { merge: true });
+        });
+
+        await batch.commit();
+        console.log("Fumacur treatment synced successfully for user:", uid);
+    } catch (err) {
+        console.error("Sync error:", err);
+    }
+}
+
 export { app, auth, db };

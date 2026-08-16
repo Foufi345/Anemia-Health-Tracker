@@ -1,22 +1,40 @@
 import { db } from './firebase-init.js';
-import { doc, getDoc, collection, query, orderBy, getDocs, writeBatch, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { doc, getDoc, collection, getDocs, writeBatch, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 
 export async function initToday(uid) {
     const todayStr = new Date().toISOString().split('T')[0];
     const profileRef = doc(db, "users", uid);
     const dayRef = doc(db, "users", uid, "days", todayStr);
     const slotsRef = collection(db, "users", uid, "mealSlots");
+    const fumacurRef = doc(db, "users", uid, "products", "fumacur");
 
     try {
         const profileSnap = await getDoc(profileRef);
-        const profile = profileSnap.data();
+        const profile = profileSnap.exists() ? profileSnap.data() : {};
         const doseTarget = profile.doseTarget || 2;
-        const medName = profile.medicationName || "Medication";
+        const medName = profile.medicationName || "Fumacur (فوماكور)";
 
-        const slotsQuery = query(slotsRef, orderBy("order", "asc"));
-        const slotsSnap = await getDocs(slotsQuery);
+        // Ensure Fumacur product exists with 180 total stock if not initialized
+        let fumacurSnap = await getDoc(fumacurRef);
+        if (!fumacurSnap.exists()) {
+            await setDoc(fumacurRef, {
+                name: "فوماكور (Fumacur)",
+                category: "Medication",
+                unit: "قرص",
+                stockQty: 180,
+                portionPerUse: 1,
+                lowStockThreshold: 20,
+                icon: "💊"
+            });
+            fumacurSnap = await getDoc(fumacurRef);
+        }
+        let fumacurData = fumacurSnap.data() || { stockQty: 180 };
+
+        // Fetch Meal Slots
+        const slotsSnap = await getDocs(slotsRef);
         let slots = [];
         slotsSnap.forEach(doc => slots.push({ id: doc.id, ...doc.data() }));
+        slots.sort((a, b) => (a.order !== undefined ? a.order : 0) - (b.order !== undefined ? b.order : 0));
 
         let daySnap = await getDoc(dayRef);
         if (!daySnap.exists()) {
@@ -30,16 +48,16 @@ export async function initToday(uid) {
         
         let dayData = daySnap.data();
         
-        renderMeals(uid, slots, dayData, dayRef, doseTarget, medName);
+        renderMeals(uid, slots, dayData, dayRef, doseTarget, medName, fumacurRef);
         renderSymptoms(dayData.symptoms, dayRef);
-        updateTopCards(slots, dayData.meals, doseTarget);
+        updateTopCards(slots, dayData.meals, doseTarget, medName, fumacurData.stockQty);
 
     } catch (e) {
         console.error("Today view error:", e);
     }
 }
 
-function renderMeals(uid, slots, dayData, dayRef, doseTarget, medName) {
+function renderMeals(uid, slots, dayData, dayRef, doseTarget, medName, fumacurRef) {
     const container = document.getElementById('meals-container');
     container.innerHTML = '';
 
@@ -57,7 +75,7 @@ function renderMeals(uid, slots, dayData, dayRef, doseTarget, medName) {
 
         let badgeHTML = '';
         if (slot.isDoseSlot) {
-            badgeHTML = `<span class="inline-block mt-2 bg-rose-100 text-rose-700 text-xs px-2 py-1 rounded font-bold">💊  Dose${medName}</span>`;
+            badgeHTML = `<span class="inline-block mt-2 bg-rose-100 text-rose-700 text-xs px-2 py-1 rounded font-bold">💊 Dose: ${medName}</span>`;
         }
 
         row.innerHTML = `
@@ -91,28 +109,36 @@ function renderMeals(uid, slots, dayData, dayRef, doseTarget, medName) {
                 dosesTaken: doses
             });
 
-            // Update linked products stock
-            if (slot.linkedProductIds && slot.linkedProductIds.length > 0) {
-                for (const prodId of slot.linkedProductIds) {
-                    const prodRef = doc(db, "users", uid, "products", prodId);
-                    const prodSnap = await getDoc(prodRef); // need current stock to decrement properly, transactions are better but this is simpler client-side
-                    if (prodSnap.exists()) {
-                        const pData = prodSnap.data();
-                        let newQty = pData.stockQty || 0;
-                        const portion = pData.portionPerUse || 1;
-                        if (checked) {
-                            newQty = Math.max(0, newQty - portion);
-                        } else {
-                            newQty = newQty + portion;
-                        }
-                        batch.update(prodRef, { stockQty: newQty });
+            // Track linked products & Fumacur medication
+            const productsToUpdate = new Set(slot.linkedProductIds || []);
+            if (slot.isDoseSlot) {
+                productsToUpdate.add('fumacur');
+            }
+
+            let latestFumacurQty = 180;
+
+            for (const prodId of productsToUpdate) {
+                const prodRef = doc(db, "users", uid, "products", prodId);
+                const prodSnap = await getDoc(prodRef);
+                if (prodSnap.exists()) {
+                    const pData = prodSnap.data();
+                    let newQty = pData.stockQty !== undefined ? pData.stockQty : 180;
+                    const portion = pData.portionPerUse || 1;
+                    if (checked) {
+                        newQty = Math.max(0, newQty - portion);
+                    } else {
+                        newQty = newQty + portion;
+                    }
+                    batch.update(prodRef, { stockQty: newQty });
+                    if (prodId === 'fumacur') {
+                        latestFumacurQty = newQty;
                     }
                 }
             }
 
             try {
                 await batch.commit();
-                updateTopCards(slots, dayData.meals, doseTarget);
+                updateTopCards(slots, dayData.meals, doseTarget, medName, latestFumacurQty);
             } catch (err) {
                 console.error("Batch write failed", err);
                 e.target.checked = !checked; // revert UI
@@ -123,61 +149,97 @@ function renderMeals(uid, slots, dayData, dayRef, doseTarget, medName) {
     });
 }
 
-function updateTopCards(slots, meals, doseTarget) {
+function updateTopCards(slots, meals, doseTarget, medName, fumacurQty) {
     let dosesTaken = 0;
     slots.forEach(s => {
         if (s.isDoseSlot && meals[s.id]) dosesTaken++;
     });
 
-    document.getElementById('dose-text').innerText = `${dosesTaken} / ${doseTarget}`;
-    document.getElementById('dose-bar').style.width = `${Math.min(100, (dosesTaken / doseTarget) * 100)}%`;
+    const doseText = document.getElementById('dose-text');
+    const doseBar = document.getElementById('dose-bar');
+    if (doseText) doseText.innerText = `${dosesTaken} / ${doseTarget}`;
+    if (doseBar) doseBar.style.width = `${Math.min(100, (dosesTaken / doseTarget) * 100)}%`;
 
-    // Simple nausea logic: if first slot of day is completed, nausea is better
-    if (slots.length > 0 && meals[slots[0].id]) {
-        document.getElementById('nausea-status').innerText = "Stable";
-        document.getElementById('nausea-status').className = "text-green-600 font-bold";
-    } else {
-        document.getElementById('nausea-status').innerText = "Nausea Risk";
-        document.getElementById('nausea-status').className = "text-orange-500 font-bold";
+    // Update Fumacur Stock Card text
+    const medLabel = document.getElementById('med-name-label');
+    const stockText = document.getElementById('med-stock-text');
+    if (medLabel) medLabel.innerText = `${medName || 'فوماكور (Fumacur)'}`;
+    if (stockText) {
+        const qty = fumacurQty !== undefined ? fumacurQty : 180;
+        const daysLeft = Math.floor(qty / (doseTarget || 2));
+        stockText.innerText = `${qty} / 180 (${daysLeft} days left)`;
     }
+
+    // Nausea Status
+    const nauseaStatus = document.getElementById('nausea-status');
+    if (nauseaStatus) {
+        if (slots.length > 0 && meals[slots[0].id]) {
+            nauseaStatus.innerText = "Stable";
+            nauseaStatus.className = "text-green-600 font-bold";
+        } else {
+            nauseaStatus.innerText = "Nausea Risk";
+            nauseaStatus.className = "text-orange-500 font-bold";
+        }
+    }
+}
+
+function showToast() {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.classList.remove('opacity-0');
+    setTimeout(() => t.classList.add('opacity-0'), 2000);
 }
 
 function renderSymptoms(symptoms, dayRef) {
     const sym = symptoms || { energy: 3, nausea: 3, dizziness: 3, notes: "" };
     
-    document.getElementById('slider-energy').value = sym.energy;
-    document.getElementById('val-energy').innerText = `${sym.energy}/5`;
+    const energySlider = document.getElementById('slider-energy');
+    const energyVal = document.getElementById('val-energy');
+    const nauseaSlider = document.getElementById('slider-nausea');
+    const nauseaVal = document.getElementById('val-nausea');
+    const dizzinessSlider = document.getElementById('slider-dizziness');
+    const dizzinessVal = document.getElementById('val-dizziness');
+    const notesText = document.getElementById('notes-text');
+    const saveBtn = document.getElementById('btn-save-symptoms');
+
+    energySlider.value = sym.energy;
+    energyVal.innerText = `${sym.energy}/5`;
     
-    document.getElementById('slider-nausea').value = sym.nausea;
-    document.getElementById('val-nausea').innerText = `${sym.nausea}/5`;
+    nauseaSlider.value = sym.nausea;
+    nauseaVal.innerText = `${sym.nausea}/5`;
     
-    document.getElementById('slider-dizziness').value = sym.dizziness;
-    document.getElementById('val-dizziness').innerText = `${sym.dizziness}/5`;
+    dizzinessSlider.value = sym.dizziness;
+    dizzinessVal.innerText = `${sym.dizziness}/5`;
     
-    document.getElementById('notes-text').value = sym.notes;
+    notesText.value = sym.notes || '';
 
-    let timeout;
-    const saveSymptoms = () => {
-        const energy = parseInt(document.getElementById('slider-energy').value);
-        const nausea = parseInt(document.getElementById('slider-nausea').value);
-        const dizziness = parseInt(document.getElementById('slider-dizziness').value);
-        const notes = document.getElementById('notes-text').value;
+    // Update labels locally on slider move
+    energySlider.addEventListener('input', (e) => {
+        energyVal.innerText = `${e.target.value}/5`;
+    });
+    nauseaSlider.addEventListener('input', (e) => {
+        nauseaVal.innerText = `${e.target.value}/5`;
+    });
+    dizzinessSlider.addEventListener('input', (e) => {
+        dizzinessVal.innerText = `${e.target.value}/5`;
+    });
 
-        updateDoc(dayRef, {
-            symptoms: { energy, nausea, dizziness, notes }
-        }).catch(e => console.error("Save symptoms error:", e));
-    };
+    // Save on button click only
+    if (saveBtn) {
+        saveBtn.onclick = async () => {
+            const energy = parseInt(energySlider.value);
+            const nausea = parseInt(nauseaSlider.value);
+            const dizziness = parseInt(dizzinessSlider.value);
+            const notes = notesText.value;
 
-    const attachDebounce = (id, valId) => {
-        document.getElementById(id).addEventListener('input', (e) => {
-            if (valId) document.getElementById(valId).innerText = `${e.target.value}/5`;
-            clearTimeout(timeout);
-            timeout = setTimeout(saveSymptoms, 1000);
-        });
-    };
-
-    attachDebounce('slider-energy', 'val-energy');
-    attachDebounce('slider-nausea', 'val-nausea');
-    attachDebounce('slider-dizziness', 'val-dizziness');
-    attachDebounce('notes-text', null);
+            try {
+                await updateDoc(dayRef, {
+                    symptoms: { energy, nausea, dizziness, notes }
+                });
+                showToast();
+            } catch (e) {
+                console.error("Save symptoms error:", e);
+            }
+        };
+    }
 }
